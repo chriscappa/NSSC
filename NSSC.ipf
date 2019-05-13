@@ -389,7 +389,7 @@ Function StandardProcess_Step4()
 	ModifyGraph width=250, height=150 
 	ModifyGraph mirror=1,standoff=0
 	Label left "Normalized mass"
-	Label bottom "Desorption temperature, ¡C"
+	Label bottom "Desorption temperature, Â¡C"
 	SetAxis left -0.1,1.3
 	ModifyGraph lsize=1.5
 	GraphClstSpectrum_stacked_np(ClusterSpectra_normsort,molarmass_cmp_fil)
@@ -5326,13 +5326,15 @@ Function CalculateClstMass_np(Clusternum,CmpMass,newwavestr)
 End
 
 
+//**************************************************************************************************
+Function AverageClstProperties()
 //This function calculates the average properties of each cluster, such as average H/C, O/C
-Function AverageClstProperties(weighted)
-	variable weighted // 0 = no, 1 = mass weighted
+// v1.1 - updated calculation of decimal place for unweighted average and of O:C, H:C, MW, OSc
+	// uncertainties are probably still wrong
 
 	string clusternumstr = "Clusternumsort"
 	string clustersizestr = "Clustersizesort"
-	string weight_str = "no"
+	string weight_str = "yes"
 
 	prompt clusternumstr, "Select wave of cluster#", popup WaveList("*",";","")
 	prompt clustersizestr, "Select wave of cluster size", popup WaveList("*",";","")
@@ -5343,8 +5345,8 @@ Function AverageClstProperties(weighted)
 		abort
 	endif
 
-	wave clusternumwave = $clusternumstr //-1 for unclustered ions and 1-x as cluster# for clustered ions
-	wave clustersizewave = $clustersizestr //By default, the clustersize wave contains the number of unclustered ions in point 0
+	wave clusternumwave = $clusternumstr // The cluster number; -1 = unclustered ions; 1-x as cluster# for clustered ions
+	wave clustersizewave = $clustersizestr // Wave containing the # members of each cluster; By default, the clustersize wave contains the number of unclustered ions in point 0
 
 	//Make sure that the following waves already exists in the current folder
 	
@@ -5383,7 +5385,7 @@ Function AverageClstProperties(weighted)
 	
 	string MFstr = ""
 	variable atom_ceil, atom_floor, atom_dec // for determining average molecular formula
-//	variable weighted // 0 = no, 1 = weight by mass
+	variable weighted // 0 = no, 1 = mass weighted
 	if(stringmatch(weight_str,"no")==1)
 		weighted = 0
 	else
@@ -5434,7 +5436,7 @@ Function AverageClstProperties(weighted)
 			C_num_clst_avg[i][1]=V_sdev
 			atom_ceil = ceil(V_avg)
 			atom_floor = floor(V_avg)
-			atom_dec = floor(10*(atom_ceil - V_avg))
+			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // determine the decimal place, as an integer
 			MFstr += "C" + num2istr(atom_floor) + "." + num2istr(atom_dec)
 			// H atoms
 			wavestats/q tempwave8
@@ -5442,7 +5444,7 @@ Function AverageClstProperties(weighted)
 			H_num_clst_avg[i][1]=V_sdev
 			atom_ceil = ceil(V_avg)
 			atom_floor = floor(V_avg)
-			atom_dec = floor(10*(atom_ceil - V_avg))
+			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // determine the decimal place, as an integer
 			MFstr += "H" + num2istr(atom_floor) + "." + num2istr(atom_dec)
 			// O atoms
 			wavestats/q tempwave7
@@ -5450,7 +5452,7 @@ Function AverageClstProperties(weighted)
 			O_num_clst_avg[i][1]=V_sdev
 			atom_ceil = ceil(V_avg)
 			atom_floor = floor(V_avg)
-			atom_dec = floor(10*(atom_ceil - V_avg))
+			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // determine the decimal place, as an integer
 			MFstr += "O" + num2istr(atom_floor) + "." + num2istr(atom_dec)
 			// N atoms
 			wavestats/q tempwave5
@@ -5458,7 +5460,7 @@ Function AverageClstProperties(weighted)
 			N_num_clst_avg[i][1]=V_sdev
 			atom_ceil = ceil(V_avg)
 			atom_floor = floor(V_avg)
-			atom_dec = floor(10*(atom_ceil - V_avg))
+			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // determine the decimal place, as an integer
 			MFstr += "N" + num2istr(atom_floor) + "." + num2istr(atom_dec)
 			
 			MolecularFormula_clst_avg[i] = MFstr
@@ -5483,26 +5485,14 @@ Function AverageClstProperties(weighted)
 			mass_clst_avg[i][0]=V_avg
 			mass_clst_avg[i][1]=V_sdev
 			Mass_clst_sum[i]=V_sum
-			wavestats/q tempwave
-			Molarmass_clst_avg[i][0]=V_avg/mass_clst_avg[i][0]
-			Molarmass_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
-			wavestats/q tempwave1
-			OSc_clst_avg[i][0]=V_avg
-			OSc_clst_avg[i][1]=V_sdev
-			wavestats/q tempwave2
-			OC_clst_avg[i][0]=V_avg
-			OC_clst_avg[i][1]=V_sdev
-			wavestats/q tempwave3
-			HC_clst_avg[i][0]=V_avg
-			HC_clst_avg[i][1]=V_sdev
 			// Carbon atoms
 			wavestats/q tempwave4
-			C_num_clst_avg[i][0]=V_avg/mass_clst_avg[i][0]
-			V_avg_weighted = V_avg/mass_clst_avg[i][0]
-			C_num_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
+			C_num_clst_avg[i][0]=V_avg/mass_clst_avg[i][0] // average
+			V_avg_weighted = V_avg/mass_clst_avg[i][0] // weighting
+			C_num_clst_avg[i][1]=V_avg_weighted*(sqrt((V_sdev/C_num_clst_avg[i][0])^2)/mass_clst_avg[i][0]) // standard deviation
 			atom_ceil = ceil(V_avg_weighted)
 			atom_floor = floor(V_avg_weighted)
-			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // floor(10*(1-(atom_ceil - V_avg_weighted)))
+			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // determine the decimal place, as an integer
 			if(atom_dec==10)
 				atom_floor +=1 
 				atom_dec = 0
@@ -5515,7 +5505,7 @@ Function AverageClstProperties(weighted)
 			H_num_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
 			atom_ceil = ceil(V_avg_weighted)
 			atom_floor = floor(V_avg_weighted)
-			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // floor(10*(1-(atom_ceil - V_avg_weighted)))
+			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted)
 			if(atom_dec==10)
 				atom_floor +=1 
 				atom_dec = 0
@@ -5528,7 +5518,7 @@ Function AverageClstProperties(weighted)
 			O_num_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
 			atom_ceil = ceil(V_avg_weighted)
 			atom_floor = floor(V_avg_weighted)
-			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // floor(10*(1-(atom_ceil - V_avg_weighted)))
+			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) 
 			if(atom_dec==10)
 				atom_floor +=1 
 				atom_dec = 0
@@ -5541,7 +5531,7 @@ Function AverageClstProperties(weighted)
 			N_num_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
 			atom_ceil = ceil(V_avg_weighted)
 			atom_floor = floor(V_avg_weighted)
-			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // floor(10*(1-(atom_ceil - V_avg_weighted)))
+			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted)
 			if(atom_dec==10)
 				atom_floor +=1 
 				atom_dec = 0
@@ -5550,10 +5540,13 @@ Function AverageClstProperties(weighted)
 			
 			MolecularFormula_clst_avg[i] = MFstr
 		endif
-		// Get O:C, H:C, etc. 
-		OC_clst_avg[][0] = O_num_clst_avg[p][0]/C_num_clst_avg[p][0]
-		HC_clst_avg[][0] = H_num_clst_avg[p][0]/C_num_clst_avg[p][0]
 	endfor
+	
+	// Get O:C, H:C, etc. 
+	Molarmass_clst_avg[p][0] = 12*C_num_clst_avg[p][0] + H_num_clst_avg[p][0] + 16*O_num_clst_avg[p][0] + 14*N_num_clst_avg[p][0]
+	OC_clst_avg[][0] = O_num_clst_avg[p][0]/C_num_clst_avg[p][0]
+	HC_clst_avg[][0] = H_num_clst_avg[p][0]/C_num_clst_avg[p][0]
+	OSc_clst_avg[][0] = 2*OC_clst_avg[p][0]-HC_clst_avg[p][0]-5*(N_num_clst_avg[p][0]/C_num_clst_avg[p][0])
 	
 	Note/k Molarmass_clst_avg "This wave stores the average molarmass of clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
 	Note/k OSc_clst_avg "This wave stores the average OSc of clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
@@ -7469,7 +7462,7 @@ Function GraphBasics()
 	display bulk_TG_rf vs temp_c
 	ModifyGraph width=250, height=200
 	Label left "Mass (sum of mass of all the ions)"
-	Label bottom "Desorption temperature, ¡C"
+	Label bottom "Desorption temperature, Â¡C"
 	ModifyGraph lsize=1.5
 	ModifyGraph mirror=1,fSize=12,standoff=0
 	Setaxis left 0,*
@@ -7482,7 +7475,7 @@ Function GraphBasics()
 	ModifyGraph lsize=1.5
 	ModifyGraph rgb(temp_C)=(32768,40777,65535)
 	ModifyGraph lstyle(temp_C)=3
-	Label right "Desorption temperature, ¡C"
+	Label right "Desorption temperature, Â¡C"
 	ModifyGraph axRGB(right)=(1,4,52428),tlblRGB(right)=(1,4,52428)
 	ModifyGraph alblRGB(right)=(1,4,52428)
 	ModifyGraph mirror(bottom)=1,fSize=12,standoff=0
