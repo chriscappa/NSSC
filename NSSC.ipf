@@ -5,11 +5,10 @@
 // Some functions are specific to FIGAERO-CIMS data. Future aim to generalize. 
 
 // Version updates
-// pre-version tracking
-	// - initiall functions written
-	// - update names to CLUSTER, SCAN, etc. 
-	// - updated AverageClstPropertiesW() function
-	// - 08/02/19 - corrected calculation of T50
+// v1.0.0 - initiall functions written
+// v1.0.1 - update names to CLUSTER, SCAN, etc. 
+// v1.0.2 - updated AverageClstPropertiesW() function
+// v1.0.3 - 08/02/19 - corrected calculation of T50
 
 //******************************************************************************
 //!!! Some functions are paired with suffix "_np". In this case, functions w/o _np have pop-up menus
