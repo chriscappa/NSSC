@@ -6,7 +6,9 @@
 
 // Version updates
 // v1.0 - initiall functions written
-
+// v1.0.1 - update names to CLUSTER, SCAN, etc. 
+// v1.0.2 - updated AverageClstPropertiesW() function
+// v1.0.3 - 08/02/19 - corrected calculation of T50
 
 //******************************************************************************
 //!!! Some functions are paired with suffix "_np". In this case, functions w/o _np have pop-up menus
@@ -367,6 +369,7 @@ Function StandardProcess_Step4()
 	wave time_s, temp_c
 	wave time_s_10a, temp_c_10a
 	wave Mass50Locsort
+	wave Mass75Locsort
 	wave clusterave_wtsort
 	
 	ClusterSpectraMatrix_np(cmp_mass_fil,clusternumsort,"_abssort")
@@ -384,6 +387,7 @@ Function StandardProcess_Step4()
 	AverageClstProperties_np(Clusternumsort, Clustersizesort)
 	
 	Loc2T_np(Mass50Locsort,temp_c_10a,"Mass50Tsort")
+	Loc2T_np(Mass75Locsort,temp_c_10a,"Mass75Tsort")
 	
 	GraphMatrix_Col_np(clusterave_wtsort, temp_c_10a, "ClusterAve_wt")
 	ModifyGraph width=250, height=150 
@@ -3056,8 +3060,8 @@ Function NSSC()
 	
 	make/o/d/n=2/Free ungroupedN
 	
-	make/o/d/n=(ncols)/Free Pstate = 0 // CLUSTER state
-	make/o/d/n=(ncols)/Free Vstate = 0 // SCAN state
+	make/o/d/n=(ncols)/Free CLUSTER = 0 // CLUSTER state
+	make/o/d/n=(ncols)/Free SEED = 0 // SEED state
 	make/o/d/n=(ncols) Clusternum=-1
 	make/o/d/n=(nrows,nclusters) Clusterseed=0
 	make/o/d/n=(nclusters) ClusterseedIndx=0
@@ -3078,8 +3082,8 @@ Function NSSC()
 			//print "too many loops. Probably means not enough neighbors."
 			break
 		endif
-		extract/INDX/o vstate, ptemp, vstate==0 // extract indices of all spectra that have not been checked yet
-		extract/o sortingwave, sorttemp,vstate==0
+		extract/INDX/o SEED, ptemp, SEED==0 && CLUSTER==0// extract indices of all spectra that have not been checked yet
+		extract/o sortingwave, sorttemp,SEED==0 && CLUSTER==0
 		if(numpnts(ptemp)==0)
 			break
 		endif
@@ -3088,12 +3092,12 @@ Function NSSC()
 		//seed_idx=V_maxloc //Used when sorted by mass contribution, high->low
 		//seed_idx = round(abs(enoise(numpnts(ptemp)-1))) // determine a random seed from this list
 		seed_idx = ptemp[seed_idx] // get the index number, specifically, of the random seed
-		vstate[seed_idx]=1
+		SEED[seed_idx]=1
 		dotref = dmat[seed_idx][seed_idx] // the reference dot product
 		DotArray = dmat[p][seed_idx] // the dot products for the single spectrum to compare against
 		//pstate[seed_idx] = 1 // set pstate to 1 for this seed #
 		// check number of neighbors by extracting all that are within range eps
-		extract/INDX/o DotArray, neighbors, abs(dotarray - dotref) < eps && pstate==0 
+		extract/INDX/o DotArray, neighbors, abs(dotarray - dotref) < eps && CLUSTER==0 
 		
 		if(numpnts(neighbors) < minNeighbors)
 			continue // if there is no match, return to start
@@ -3103,8 +3107,8 @@ Function NSSC()
 		cc +=1
 		
 		for(i=0;i<numpnts(neighbors);i+=1)
-			pstate[neighbors[i]] = 1
-			vstate[neighbors[i]] = 1
+			CLUSTER[neighbors[i]] = 1
+			//vstate[neighbors[i]] = 1
 			Clusternum[neighbors[i]]=k+1
 		endfor
 
@@ -3114,7 +3118,7 @@ Function NSSC()
 		k+=1
 	while(k<nclusters)
 
-	extract/INDX/o pstate, ptemp, pstate==0
+	extract/INDX/o CLUSTER, ptemp, CLUSTER==0
 	//print numpnts(ptemp)
 	ungroupedN[0]=numpnts(ptemp)
 	mat=mat_temp	
@@ -3198,8 +3202,8 @@ Function NSSC_np(mat,Dmat,sortingwave,weightwave, nclusters,eps)
 	
 	make/o/d/n=2/Free ungroupedN
 	
-	make/o/d/n=(ncols)/Free Pstate = 0 // CLUSTER state
-	make/o/d/n=(ncols)/Free Vstate = 0 // SCAN state
+	make/o/d/n=(ncols)/Free CLUSTER = 0 // CLUSTER state
+	make/o/d/n=(ncols)/Free SEED= 0 // SEED state
 	make/o/d/n=(ncols) Clusternum=-1
 	make/o/d/n=(nrows,nclusters) Clusterseed=0
 	make/o/d/n=(nclusters) ClusterseedIndx=0
@@ -3220,8 +3224,8 @@ Function NSSC_np(mat,Dmat,sortingwave,weightwave, nclusters,eps)
 			//print "too many loops. Probably means not enough neighbors."
 			break
 		endif
-		extract/INDX/o vstate, ptemp, vstate==0 // extract indices of all spectra that have not been checked yet
-		extract/o sortingwave, sorttemp,vstate==0
+		extract/INDX/o SEED, ptemp, SEED==0 && CLUSTER==0// extract indices of all spectra that have not been checked yet
+		extract/o sortingwave, sorttemp,SEED==0 && CLUSTER==0
 		if(numpnts(ptemp)==0)
 			break
 		endif
@@ -3230,12 +3234,12 @@ Function NSSC_np(mat,Dmat,sortingwave,weightwave, nclusters,eps)
 		//seed_idx=V_maxloc //Used when sorted by mass contribution, high->low
 		//seed_idx = round(abs(enoise(numpnts(ptemp)-1))) // determine a random seed from this list
 		seed_idx = ptemp[seed_idx] // get the index number, specifically, of the random seed
-		vstate[seed_idx]=1
+		SEED[seed_idx]=1
 		dotref = dmat[seed_idx][seed_idx] // the reference dot product
 		DotArray = dmat[p][seed_idx] // the dot products for the single spectrum to compare against
 		//pstate[seed_idx] = 1 // set pstate to 1 for this seed #
 		// check number of neighbors by extracting all that are within range eps
-		extract/INDX/o DotArray, neighbors, abs(dotarray - dotref) < eps && pstate==0 
+		extract/INDX/o DotArray, neighbors, abs(dotarray - dotref) < eps && CLUSTER==0 
 		
 		if(numpnts(neighbors) < minNeighbors)
 			continue // if there is no match, return to start
@@ -3245,8 +3249,8 @@ Function NSSC_np(mat,Dmat,sortingwave,weightwave, nclusters,eps)
 		cc +=1
 		
 		for(i=0;i<numpnts(neighbors);i+=1)
-			pstate[neighbors[i]] = 1
-			vstate[neighbors[i]] = 1
+			CLUSTER[neighbors[i]] = 1
+			//vstate[neighbors[i]] = 1
 			Clusternum[neighbors[i]]=k+1
 		endfor
 
@@ -3256,7 +3260,7 @@ Function NSSC_np(mat,Dmat,sortingwave,weightwave, nclusters,eps)
 		k+=1
 	while(k<nclusters)
 
-	extract/INDX/o pstate, ptemp, pstate==0
+	extract/INDX/o CLUSTER, ptemp, CLUSTER==0
 	//print numpnts(ptemp)
 	ungroupedN[0]=numpnts(ptemp)
 	mat=mat_temp	
@@ -3361,8 +3365,8 @@ Function NSSC_w1M()
 	
 	make/o/d/n=2/Free ungroupedN
 	
-	make/o/d/n=(ncols)/Free Pstate = 0 // CLUSTER state
-	make/o/d/n=(ncols)/Free Vstate = 0 // SCAN state
+	make/o/d/n=(ncols)/Free CLUSTER = 0 // CLUSTER state
+	make/o/d/n=(ncols)/Free SEED = 0 // SEED state
 	make/o/d/n=(ncols) Clusternum=-1
 	make/o/d/n=(nrows,nclusters) Clusterseed=0
 	make/o/d/n=(nclusters) ClusterseedIndx=0
@@ -3383,8 +3387,8 @@ Function NSSC_w1M()
 			//print "too many loops. Probably means not enough neighbors."
 			break
 		endif
-		extract/INDX/o vstate, ptemp, vstate==0 // extract indices of all spectra that have not been checked yet
-		extract/o sortingwave, sorttemp,vstate==0
+		extract/INDX/o SEED, ptemp, SEED==0 && CLUSTER==0// extract indices of all spectra that have not been checked yet
+		extract/o sortingwave, sorttemp,SEED==0 && CLUSTER==0
 		if(numpnts(ptemp)==0)
 			break
 		endif
@@ -3393,12 +3397,12 @@ Function NSSC_w1M()
 		//seed_idx=V_maxloc //Used when sorted by mass contribution, high->low
 		//seed_idx = round(abs(enoise(numpnts(ptemp)-1))) // determine a random seed from this list
 		seed_idx = ptemp[seed_idx] // get the index number, specifically, of the random seed
-		vstate[seed_idx]=1
+		SEED[seed_idx]=1
 		dotref = dmat[seed_idx][seed_idx] // the reference dot product
 		DotArray = dmat[p][seed_idx] // the dot products for the single spectrum to compare against
 		//pstate[seed_idx] = 1 // set pstate to 1 for this seed #
 		// check number of neighbors by extracting all that are within range eps
-		extract/INDX/o DotArray, neighbors, abs(dotarray - dotref) < eps && pstate==0 
+		extract/INDX/o DotArray, neighbors, abs(dotarray - dotref) < eps && CLUSTER==0 
 		
 		if(numpnts(neighbors) < minNeighbors)
 			continue // if there is no match, return to start
@@ -3408,8 +3412,8 @@ Function NSSC_w1M()
 		cc +=1
 		
 		for(i=0;i<numpnts(neighbors);i+=1)
-			pstate[neighbors[i]] = 1
-			vstate[neighbors[i]] = 1
+			CLUSTER[neighbors[i]] = 1
+			//vstate[neighbors[i]] = 1
 			Clusternum[neighbors[i]]=k+1
 		endfor
 
@@ -3419,7 +3423,7 @@ Function NSSC_w1M()
 		k+=1
 	while(k<nclusters)
 
-	extract/INDX/o pstate, ptemp, pstate==0
+	extract/INDX/o CLUSTER, ptemp, CLUSTER==0
 	//print numpnts(ptemp)
 	ungroupedN[0]=numpnts(ptemp)
 	mat=mat_temp	
@@ -3516,8 +3520,8 @@ Function NSSC_w1M_np(mat,Dmat,sortingwave,weightwave,nclusters,eps,Mthreshold)
 	
 	make/o/d/n=2/Free ungroupedN
 	
-	make/o/d/n=(ncols)/Free Pstate = 0 // CLUSTER state
-	make/o/d/n=(ncols)/Free Vstate = 0 // SCAN state
+	make/o/d/n=(ncols)/Free CLUSTER = 0 // CLUSTER state
+	make/o/d/n=(ncols)/Free SEED = 0 // SEED state
 	make/o/d/n=(ncols) Clusternum=-1
 	make/o/d/n=(nrows,nclusters) Clusterseed=0
 	make/o/d/n=(nclusters) ClusterseedIndx=0
@@ -3538,8 +3542,8 @@ Function NSSC_w1M_np(mat,Dmat,sortingwave,weightwave,nclusters,eps,Mthreshold)
 			//print "too many loops. Probably means not enough neighbors."
 			break
 		endif
-		extract/INDX/o vstate, ptemp, vstate==0 // extract indices of all spectra that have not been checked yet
-		extract/o sortingwave, sorttemp,vstate==0
+		extract/INDX/o SEED, ptemp, SEED==0 && CLUSTER==0// extract indices of all spectra that have not been checked yet
+		extract/o sortingwave, sorttemp,SEED==0 && CLUSTER==0
 		if(numpnts(ptemp)==0)
 			break
 		endif
@@ -3548,12 +3552,12 @@ Function NSSC_w1M_np(mat,Dmat,sortingwave,weightwave,nclusters,eps,Mthreshold)
 		//seed_idx=V_maxloc //Used when sorted by mass contribution, high->low
 		//seed_idx = round(abs(enoise(numpnts(ptemp)-1))) // determine a random seed from this list
 		seed_idx = ptemp[seed_idx] // get the index number, specifically, of the random seed
-		vstate[seed_idx]=1
+		SEED[seed_idx]=1
 		dotref = dmat[seed_idx][seed_idx] // the reference dot product
 		DotArray = dmat[p][seed_idx] // the dot products for the single spectrum to compare against
 		//pstate[seed_idx] = 1 // set pstate to 1 for this seed #
 		// check number of neighbors by extracting all that are within range eps
-		extract/INDX/o DotArray, neighbors, abs(dotarray - dotref) < eps && pstate==0 
+		extract/INDX/o DotArray, neighbors, abs(dotarray - dotref) < eps && CLUSTER==0 
 		
 		if(numpnts(neighbors) < minNeighbors)
 			continue // if there is no match, return to start
@@ -3563,8 +3567,8 @@ Function NSSC_w1M_np(mat,Dmat,sortingwave,weightwave,nclusters,eps,Mthreshold)
 		cc +=1
 		
 		for(i=0;i<numpnts(neighbors);i+=1)
-			pstate[neighbors[i]] = 1
-			vstate[neighbors[i]] = 1
+			CLUSTER[neighbors[i]] = 1
+			//vstate[neighbors[i]] = 1
 			Clusternum[neighbors[i]]=k+1
 		endfor
 
@@ -3574,7 +3578,7 @@ Function NSSC_w1M_np(mat,Dmat,sortingwave,weightwave,nclusters,eps,Mthreshold)
 		k+=1
 	while(k<nclusters)
 
-	extract/INDX/o pstate, ptemp, pstate==0
+	extract/INDX/o CLUSTER, ptemp, CLUSTER==0
 	//print numpnts(ptemp)
 	ungroupedN[0]=numpnts(ptemp)
 	mat=mat_temp	
@@ -4406,14 +4410,10 @@ Function SortClusters_1c()
 			GroupNum[i]=nan
 			Mass50Loc[i]=nan
 		else
-			Integrate tempwave1/X=xwave_im/D=temp_INT
+			Integrate tempwave1/D=temp_INT  
 			wave temp_INT
-			for(j=0;j<nrows-1;j+=1)
-				if(temp_INT[j]<=0.5*temp_INT[nrows-1] && temp_INT[j+1]>=0.5*temp_INT[nrows-1])
-					Mass50Loc[i]=j
-				endif
-			endfor
-			
+			findlevel/q temp_INT,0.5*temp_INT[nrows-1]
+			Mass50Loc[i]=V_levelX
 		endif
 	endfor
 	
@@ -4522,13 +4522,10 @@ Function SortClusters_1c_np(Clusterave,Clusternum,Clusterseedindx,xwave,suffix)
 			GroupNum[i]=nan
 			Mass50Loc[i]=nan
 		else
-			Integrate tempwave1/X=xwave_im/D=temp_INT
+			Integrate tempwave1/D=temp_INT  
 			wave temp_INT
-			for(j=0;j<nrows-1;j+=1)
-				if(temp_INT[j]<=0.5*temp_INT[nrows-1] && temp_INT[j+1]>=0.5*temp_INT[nrows-1])
-					Mass50Loc[i]=j
-				endif
-			endfor
+			findlevel/q temp_INT,0.5*temp_INT[nrows-1]
+			Mass50Loc[i]=V_levelX
 			
 		endif
 	endfor
@@ -4653,17 +4650,12 @@ Function SortClusters_2c()
 			Mass50Loc[i]=nan
 			Mass75Loc[i]=nan
 		else
-			Integrate tempwave1/X=xwave_im/D=temp_INT
+			Integrate tempwave1/D=temp_INT  
 			wave temp_INT
-			for(j=0;j<nrows-1;j+=1)
-				if(temp_INT[j]<=0.5*temp_INT[nrows-1] && temp_INT[j+1]>=0.5*temp_INT[nrows-1])
-					Mass50Loc[i]=j
-				endif
-				if(temp_INT[j]<=0.75*temp_INT[nrows-1] && temp_INT[j+1]>=0.75*temp_INT[nrows-1])
-					Mass75Loc[i]=j
-				endif
-			endfor
-			
+			findlevel/q temp_INT,0.50*temp_INT[nrows-1]
+			Mass50Loc[i]=V_levelX
+			findlevel/q temp_INT,0.75*temp_INT[nrows-1]
+			Mass75Loc[i]=V_levelX
 		endif
 	endfor
 	
@@ -4780,17 +4772,12 @@ Function SortClusters_2c_np(Clusterave,Clusternum,Clusterseedindx,xwave,suffix)
 			Mass50Loc[i]=nan
 			Mass75Loc[i]=nan
 		else
-			Integrate tempwave1/X=xwave_im/D=temp_INT
+			Integrate tempwave1/D=temp_INT  
 			wave temp_INT
-			for(j=0;j<nrows-1;j+=1)
-				if(temp_INT[j]<=0.5*temp_INT[nrows-1] && temp_INT[j+1]>=0.5*temp_INT[nrows-1])
-					Mass50Loc[i]=j
-				endif
-				if(temp_INT[j]<=0.75*temp_INT[nrows-1] && temp_INT[j+1]>=0.75*temp_INT[nrows-1])
-					Mass75Loc[i]=j
-				endif
-			endfor
-			
+			findlevel/q temp_INT,0.50*temp_INT[nrows-1]
+			Mass50Loc[i]=V_levelX
+			findlevel/q temp_INT,0.75*temp_INT[nrows-1]
+			Mass75Loc[i]=V_levelX
 		endif
 	endfor
 	
@@ -4933,13 +4920,11 @@ Function SortClusters_2c_slope()
 		else
 			wavestats/q tempwave1_smt35
 			fitstartpnt = V_maxloc+17
-			Integrate tempwave1/X=xwave_im/D=temp_INT
+			Integrate tempwave1/D=temp_INT  
 			wave temp_INT
-			for(j=0;j<nrows-1;j+=1)
-				if(temp_INT[j]<=0.5*temp_INT[nrows-1] && temp_INT[j+1]>=0.5*temp_INT[nrows-1])
-					Mass50Loc[i]=j
-				endif
-			endfor
+			findlevel/q temp_INT,0.50*temp_INT[nrows-1]
+			Mass50Loc[i]=V_levelX
+
 			if(fitstartpnt < fitendpnt-53)
 				CurveFit/Q/M=2/W=0 exp, tempwave1[fitstartpnt,fitendpnt]/X=xwave[fitstartpnt,fitendpnt]/D
 				wave W_coef,W_sigma
@@ -5070,13 +5055,11 @@ Function SortClusters_2c_slope_np(Clusterave,Clusternum,Clusterseedindx,xwave,fi
 		else
 			wavestats/q tempwave1_smt35
 			fitstartpnt = V_maxloc+17
-			Integrate tempwave1/X=xwave_im/D=temp_INT
+			Integrate tempwave1/D=temp_INT  
 			wave temp_INT
-			for(j=0;j<nrows-1;j+=1)
-				if(temp_INT[j]<=0.5*temp_INT[nrows-1] && temp_INT[j+1]>=0.5*temp_INT[nrows-1])
-					Mass50Loc[i]=j
-				endif
-			endfor
+			findlevel/q temp_INT,0.50*temp_INT[nrows-1]
+			Mass50Loc[i]=V_levelX
+			
 			if(fitstartpnt < fitendpnt-3)
 				CurveFit/Q/M=2/W=2 exp, tempwave1[fitstartpnt,fitendpnt]/X=xwave[fitstartpnt,fitendpnt]/D
 				wave W_coef,W_sigma
@@ -5326,27 +5309,22 @@ Function CalculateClstMass_np(Clusternum,CmpMass,newwavestr)
 End
 
 
-//**************************************************************************************************
-Function AverageClstProperties()
 //This function calculates the average properties of each cluster, such as average H/C, O/C
-// v1.1 - updated calculation of decimal place for unweighted average and of O:C, H:C, MW, OSc
-	// uncertainties are probably still wrong
+Function AverageClstProperties()
 
 	string clusternumstr = "Clusternumsort"
 	string clustersizestr = "Clustersizesort"
-	string weight_str = "yes"
 
 	prompt clusternumstr, "Select wave of cluster#", popup WaveList("*",";","")
 	prompt clustersizestr, "Select wave of cluster size", popup WaveList("*",";","")
-	prompt weight_str, "Weight by mass contributions?", popup "yes;no"
-	Doprompt "Select waves",clusternumstr,clustersizestr, weight_Str
+	Doprompt "Select waves",clusternumstr,clustersizestr
 	
 	if(V_flag)
 		abort
 	endif
 
-	wave clusternumwave = $clusternumstr // The cluster number; -1 = unclustered ions; 1-x as cluster# for clustered ions
-	wave clustersizewave = $clustersizestr // Wave containing the # members of each cluster; By default, the clustersize wave contains the number of unclustered ions in point 0
+	wave clusternumwave = $clusternumstr //-1 for unclustered ions and 1-x as cluster# for clustered ions
+	wave clustersizewave = $clustersizestr //By default, the clustersize wave contains the number of unclustered ions in point 0
 
 	//Make sure that the following waves already exists in the current folder
 	
@@ -5381,43 +5359,25 @@ Function AverageClstProperties()
 	
 	make/o/d/n=(nclusters,2) Molarmass_clst_avg,OSc_clst_avg,OC_clst_avg,HC_clst_avg,C_num_clst_avg,N_num_clst_avg,O_num_clst_avg,H_num_clst_avg,Mass_clst_avg
 	make/o/d/n=(nclusters) Mass_clst_sum
-	make/o/t/n=(nclusters) MolecularFormula_clst_avg // a text wave with the average molecular formula for each cluster
-	
-	string MFstr = ""
-	variable atom_ceil, atom_floor, atom_dec // for determining average molecular formula
-	variable weighted // 0 = no, 1 = mass weighted
-	if(stringmatch(weight_str,"no")==1)
-		weighted = 0
-	else
-		weighted = 1
-	endif
-	variable V_avg_weighted
 	
 	for(i=0;i<nclusters;i+=1)
-		MFstr = ""
 		make/o/d/n=(clustersizewave[i+1])/Free tempwave,tempwave1,tempwave2,tempwave3,tempwave4,tempwave5,tempwave6,tempwave7,tempwave8
 		numcount=0
-		if(weighted==0) // no weighting
-			for(j=0;j<nrows;j+=1)
-				if(clusternumwave[j]==i+1)
-					tempwave[numcount]=Molarmass_cmp_fil[j]
-					tempwave1[numcount]=OSc_fil[j]
-					tempwave2[numcount]=OC_fil[j]
-					tempwave3[numcount]=HC_fil[j]
-					tempwave4[numcount]=C_num_fil[j]
-					tempwave5[numcount]=N_num_fil[j]
-					tempwave6[numcount]=Cmp_mass_fil[j]
-					tempwave7[numcount]=O_num_fil[j]
-					tempwave8[numcount]=H_num_fil[j]
-					numcount+=1
-				endif
-			endfor
+		for(j=0;j<nrows;j+=1)
+			if(clusternumwave[j]==i+1)
+				tempwave[numcount]=Molarmass_cmp_fil[j]
+				tempwave1[numcount]=OSc_fil[j]
+				tempwave2[numcount]=OC_fil[j]
+				tempwave3[numcount]=HC_fil[j]
+				tempwave4[numcount]=C_num_fil[j]
+				tempwave5[numcount]=N_num_fil[j]
+				tempwave6[numcount]=Cmp_mass_fil[j]
+				tempwave7[numcount]=O_num_fil[j]
+				tempwave8[numcount]=H_num_fil[j]
+				numcount+=1
+			endif
+		endfor
 		
-			// mass
-			wavestats/q tempwave6
-			mass_clst_avg[i][0]=V_avg
-			mass_clst_avg[i][1]=V_sdev
-			Mass_clst_sum[i]=V_sum
 			wavestats/q tempwave
 			Molarmass_clst_avg[i][0]=V_avg
 			Molarmass_clst_avg[i][1]=V_sdev
@@ -5430,123 +5390,23 @@ Function AverageClstProperties()
 			wavestats/q tempwave3
 			HC_clst_avg[i][0]=V_avg
 			HC_clst_avg[i][1]=V_sdev
-			// Carbon atoms
 			wavestats/q tempwave4
 			C_num_clst_avg[i][0]=V_avg
 			C_num_clst_avg[i][1]=V_sdev
-			atom_ceil = ceil(V_avg)
-			atom_floor = floor(V_avg)
-			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // determine the decimal place, as an integer
-			MFstr += "C" + num2istr(atom_floor) + "." + num2istr(atom_dec)
-			// H atoms
-			wavestats/q tempwave8
-			H_num_clst_avg[i][0]=V_avg
-			H_num_clst_avg[i][1]=V_sdev
-			atom_ceil = ceil(V_avg)
-			atom_floor = floor(V_avg)
-			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // determine the decimal place, as an integer
-			MFstr += "H" + num2istr(atom_floor) + "." + num2istr(atom_dec)
-			// O atoms
-			wavestats/q tempwave7
-			O_num_clst_avg[i][0]=V_avg
-			O_num_clst_avg[i][1]=V_sdev
-			atom_ceil = ceil(V_avg)
-			atom_floor = floor(V_avg)
-			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // determine the decimal place, as an integer
-			MFstr += "O" + num2istr(atom_floor) + "." + num2istr(atom_dec)
-			// N atoms
 			wavestats/q tempwave5
 			N_num_clst_avg[i][0]=V_avg
 			N_num_clst_avg[i][1]=V_sdev
-			atom_ceil = ceil(V_avg)
-			atom_floor = floor(V_avg)
-			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // determine the decimal place, as an integer
-			MFstr += "N" + num2istr(atom_floor) + "." + num2istr(atom_dec)
-			
-			MolecularFormula_clst_avg[i] = MFstr
-		else // weighted by mass
-			for(j=0;j<nrows;j+=1)
-				if(clusternumwave[j]==i+1)
-					tempwave[numcount]=Molarmass_cmp_fil[j] * Cmp_mass_fil[j]
-					tempwave1[numcount]=OSc_fil[j]
-					tempwave2[numcount]=OC_fil[j]
-					tempwave3[numcount]=HC_fil[j]
-					tempwave4[numcount]=C_num_fil[j] * Cmp_mass_fil[j]
-					tempwave5[numcount]=N_num_fil[j] * Cmp_mass_fil[j]
-					tempwave6[numcount]=Cmp_mass_fil[j]
-					tempwave7[numcount]=O_num_fil[j] * Cmp_mass_fil[j]
-					tempwave8[numcount]=H_num_fil[j] * Cmp_mass_fil[j]
-					numcount+=1
-				endif
-			endfor
-		
-			// mass
 			wavestats/q tempwave6
 			mass_clst_avg[i][0]=V_avg
 			mass_clst_avg[i][1]=V_sdev
 			Mass_clst_sum[i]=V_sum
-			// Carbon atoms
-			wavestats/q tempwave4
-			C_num_clst_avg[i][0]=V_avg/mass_clst_avg[i][0] // average
-			V_avg_weighted = V_avg/mass_clst_avg[i][0] // weighting
-			C_num_clst_avg[i][1]=V_avg_weighted*(sqrt((V_sdev/C_num_clst_avg[i][0])^2)/mass_clst_avg[i][0]) // standard deviation
-			atom_ceil = ceil(V_avg_weighted)
-			atom_floor = floor(V_avg_weighted)
-			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // determine the decimal place, as an integer
-			if(atom_dec==10)
-				atom_floor +=1 
-				atom_dec = 0
-			endif
-			MFstr += "C" + num2istr(atom_floor) + "." + num2istr(atom_dec)
-			// H atoms
-			wavestats/q tempwave8
-			H_num_clst_avg[i][0]=V_avg/mass_clst_avg[i][0]
-			V_avg_weighted = V_avg/mass_clst_avg[i][0]
-			H_num_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
-			atom_ceil = ceil(V_avg_weighted)
-			atom_floor = floor(V_avg_weighted)
-			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted)
-			if(atom_dec==10)
-				atom_floor +=1 
-				atom_dec = 0
-			endif
-			MFstr += "H" + num2istr(atom_floor) + "." + num2istr(atom_dec)
-			// O atoms
 			wavestats/q tempwave7
-			O_num_clst_avg[i][0]=V_avg/mass_clst_avg[i][0]
-			V_avg_weighted = V_avg/mass_clst_avg[i][0]
-			O_num_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
-			atom_ceil = ceil(V_avg_weighted)
-			atom_floor = floor(V_avg_weighted)
-			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) 
-			if(atom_dec==10)
-				atom_floor +=1 
-				atom_dec = 0
-			endif
-			MFstr += "O" + num2istr(atom_floor) + "." + num2istr(atom_dec)
-			// N atoms
-			wavestats/q tempwave5
-			N_num_clst_avg[i][0]=V_avg/mass_clst_avg[i][0]
-			V_avg_weighted = V_avg/mass_clst_avg[i][0]
-			N_num_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
-			atom_ceil = ceil(V_avg_weighted)
-			atom_floor = floor(V_avg_weighted)
-			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted)
-			if(atom_dec==10)
-				atom_floor +=1 
-				atom_dec = 0
-			endif
-			MFstr += "N" + num2istr(atom_floor) + "." + num2istr(atom_dec)
-			
-			MolecularFormula_clst_avg[i] = MFstr
-		endif
+			O_num_clst_avg[i][0]=V_avg
+			O_num_clst_avg[i][1]=V_sdev
+			wavestats/q tempwave8
+			H_num_clst_avg[i][0]=V_avg
+			H_num_clst_avg[i][1]=V_sdev
 	endfor
-	
-	// Get O:C, H:C, etc. 
-	Molarmass_clst_avg[p][0] = 12*C_num_clst_avg[p][0] + H_num_clst_avg[p][0] + 16*O_num_clst_avg[p][0] + 14*N_num_clst_avg[p][0]
-	OC_clst_avg[][0] = O_num_clst_avg[p][0]/C_num_clst_avg[p][0]
-	HC_clst_avg[][0] = H_num_clst_avg[p][0]/C_num_clst_avg[p][0]
-	OSc_clst_avg[][0] = 2*OC_clst_avg[p][0]-HC_clst_avg[p][0]-5*(N_num_clst_avg[p][0]/C_num_clst_avg[p][0])
 	
 	Note/k Molarmass_clst_avg "This wave stores the average molarmass of clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
 	Note/k OSc_clst_avg "This wave stores the average OSc of clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
@@ -6157,6 +6017,7 @@ Function GraphClstTG2_MultiGraphs()
 	colortab2wave dBZ21
 	wave M_colors
 	SetScale/I x,1,nclusters,M_colors
+	//SetScale/I x,1,15,M_colors
 	variable red,green,blue
 	variable indexpnt
 	variable zlevel
@@ -6274,7 +6135,8 @@ Function GraphClstTG2_OneGraph()
 	
 	colortab2wave dBZ21
 	wave M_colors
-	SetScale/I x,1,nclsts,M_colors
+	SetScale/I x,1,15,M_colors
+	//SetScale/I x,1,nclsts,M_colors
 	variable red,green,blue
 	
 	variable col_offset
@@ -6305,7 +6167,7 @@ Function GraphClstTG2_OneGraph()
 	string graphname = "AvgThermogramsofClst"
 	
 	display/N=$graphname as graphname
-	modifygraph width=500, height=500
+	//modifygraph width=500, height=500
 
 	for(i=0;i<nrows;i+=1)
 		for(j=0;j<ncols;j+=1)
@@ -7664,11 +7526,11 @@ Function CalculateTm50(Clustermatrix,xwave,massfra,newwavestr)
 	wave newwave = $(newwavestr)
 	make/o/d/n=(nrows)/Free tempwave1
 	
-	make/o/d/n=(nrows) $(nameofwave(xwave)+"_im")
-	wave xwave_im=$(nameofwave(xwave)+"_im")
-	xwave_im=xwave
-	Insertpoints nrows,1,xwave_im
-	xwave_im[nrows]=xwave_im[nrows-1]+(xwave[nrows-1]-xwave[nrows-2])
+	//make/o/d/n=(nrows) $(nameofwave(xwave)+"_im")
+	//wave xwave_im=$(nameofwave(xwave)+"_im")
+	//xwave_im=xwave
+	//Insertpoints nrows,1,xwave_im
+	//xwave_im[nrows]=xwave_im[nrows-1]+(xwave[nrows-1]-xwave[nrows-2])
 	
 	variable i,j
 	variable fitstartpnt
@@ -7676,14 +7538,315 @@ Function CalculateTm50(Clustermatrix,xwave,massfra,newwavestr)
 	for(i=0;i<ncols;i+=1)
 		tempwave1=clustermatrix[p][i]
 		wavestats/q tempwave1
-		Integrate tempwave1/X=xwave_im/D=temp_INT
+		Integrate tempwave1/D=temp_INT  
 		wave temp_INT
-		for(j=0;j<nrows-1;j+=1)
-			if(temp_INT[j]<=massfra*temp_INT[nrows-1] && temp_INT[j+1]>=massfra*temp_INT[nrows-1])
-				newwave[i]=xwave[j]
-			endif
-		endfor
+		findlevel/q temp_INT,massfra*temp_INT[nrows-1]
+		newwave[i]=xwave[V_levelX]
 	endfor
 	
-	killwaves xwave_im, temp_int
+	killwaves temp_int
+	//killwaves  xwave_im
+End
+
+//Use filterwave to assign clusternum to the ion index before noise filtering
+Function TrackBackClusternum1(clusternum,filterwave,suffix)
+	wave clusternum
+	wave filterwave
+	string suffix
+	
+	variable npnts=numpnts(filterwave)
+	
+	make/o/d/n=(npnts) $(nameofwave(clusternum)+suffix)
+	wave clusternumall=$(nameofwave(clusternum)+suffix)
+	
+	variable i,count
+	count=0
+	for(i=0;i<npnts;i+=1)
+		if(filterwave[i]==0)
+			clusternumall[i]=-2
+		else
+			clusternumall[i]=clusternum[count]
+			count+=1
+		endif
+	endfor
+	
+	Note/k clusternumall "This wave contains the cluster# of the ions, -2 indicates noise-screened, -1 indicates unclustered and 1-x indicates cluster#"
+	Note clusternumall "Function used: TrackBackClusternum1"
+	Note clusternumall "clusternum <- wave '"+nameofwave(clusternum)+"', filterwave <- wave '"+nameofwave(filterwave)+"'"
+End
+
+//Use the indx of anomalous ions to track back the clusternum of all the original ions
+Function TrackBackClusternum2(clusternum,indx2remove,newwavestr)
+	wave clusternum
+	wave indx2remove
+	string newwavestr
+	
+	variable n_a=numpnts(indx2remove)
+	variable npnts=numpnts(indx2remove)+numpnts(clusternum)
+	
+	make/o/d/n=(npnts) $(newwavestr)
+	wave clusternumall=$(newwavestr)
+	
+	variable i,count_a,count
+	count_a=0 //number of the anomalous ions
+	count=0 //number of the normal ions
+	for(i=0;i<npnts;i+=1)
+		if(i==indx2remove[count_a])
+			if(count_a<n_a-1)
+				count_a+=1
+			endif
+			clusternumall[i]=-3
+		else
+			clusternumall[i]=clusternum[count]
+			count+=1
+		endif
+	endfor
+	
+	Note/k clusternumall "This wave contains the cluster# of the ions, -3 indicates anomalous, -2 indicates noise-screened, -1 indicates unclustered and 1-x indicates cluster#"
+	Note clusternumall "Function used: TrackBackClusternum2"
+	Note clusternumall "clusternum <- wave '"+nameofwave(clusternum)+"', indx2remove <- wave '"+nameofwave(indx2remove)+"'"
+
+End
+
+
+//This function calculates the average properties of each cluster, such as average H/C, O/C
+Function AverageClstPropertiesW(weighted)
+	variable weighted // 0 = no, 1 = mass weighted
+
+	string clusternumstr = "Clusternumsort"
+	string clustersizestr = "Clustersizesort"
+	string weight_str = "no"
+
+	prompt clusternumstr, "Select wave of cluster#", popup WaveList("*",";","")
+	prompt clustersizestr, "Select wave of cluster size", popup WaveList("*",";","")
+	prompt weight_str, "Weight by mass contributions?", popup "yes;no"
+	Doprompt "Select waves",clusternumstr,clustersizestr, weight_Str
+	
+	if(V_flag)
+		abort
+	endif
+
+	wave clusternumwave = $clusternumstr //-1 for unclustered ions and 1-x as cluster# for clustered ions
+	wave clustersizewave = $clustersizestr //By default, the clustersize wave contains the number of unclustered ions in point 0
+
+	//Make sure that the following waves already exists in the current folder
+	
+	wave Molarmass_cmp_fil
+	wave N_num_fil
+	wave C_num_fil
+	wave H_num_fil
+	wave O_num_fil
+	wave OSc_fil
+	wave OC_fil
+	wave HC_fil
+	wave Cmp_mass_fil
+	
+		
+	if(waveexists(Molarmass_cmp_fil)==0 || waveexists(N_num_fil) ==0 || waveexists(C_num_fil) == 0|| waveexists(H_num_fil) == 0|| waveexists(O_num_fil) == 0|| waveexists(HC_fil) == 0|| waveexists(OC_fil) == 0|| waveexists(OSc_fil) == 0|| waveexists(Cmp_mass_fil) == 0)
+		DoAlert 0, "Please make sure that waves Molarmass_cmp_fil, N_num_fil, C_num_fil, H_num_fil, O_num_fil, OSc_fil, OC_fil, HC_fil, Cmp_mass_fil are in the current folder"
+		abort
+	endif
+	
+	variable nrows = numpnts(clusternumwave)
+	
+	wavestats/q clusternumwave
+	variable nclusters = V_max
+	
+	if(nclusters!=numpnts(clustersizewave)-1)
+		print "Please make sure the clusternum wave and clustersize wave are results from the same clustering"
+		abort
+	endif
+	
+	variable i,j,k,clustercount
+	variable numcount,tempsum
+	
+	make/o/d/n=(nclusters,2) Molarmass_clst_avg,OSc_clst_avg,OC_clst_avg,HC_clst_avg,C_num_clst_avg,N_num_clst_avg,O_num_clst_avg,H_num_clst_avg,Mass_clst_avg
+	make/o/d/n=(nclusters) Mass_clst_sum
+	make/o/t/n=(nclusters) MolecularFormula_clst_avg // a text wave with the average molecular formula for each cluster
+	
+	string MFstr = ""
+	variable atom_ceil, atom_floor, atom_dec // for determining average molecular formula
+//	variable weighted // 0 = no, 1 = weight by mass
+	if(stringmatch(weight_str,"no")==1)
+		weighted = 0
+	else
+		weighted = 1
+	endif
+	variable V_avg_weighted
+	
+	for(i=0;i<nclusters;i+=1)
+		MFstr = ""
+		make/o/d/n=(clustersizewave[i+1])/Free tempwave,tempwave1,tempwave2,tempwave3,tempwave4,tempwave5,tempwave6,tempwave7,tempwave8
+		numcount=0
+		if(weighted==0) // no weighting
+			for(j=0;j<nrows;j+=1)
+				if(clusternumwave[j]==i+1)
+					tempwave[numcount]=Molarmass_cmp_fil[j]
+					tempwave1[numcount]=OSc_fil[j]
+					tempwave2[numcount]=OC_fil[j]
+					tempwave3[numcount]=HC_fil[j]
+					tempwave4[numcount]=C_num_fil[j]
+					tempwave5[numcount]=N_num_fil[j]
+					tempwave6[numcount]=Cmp_mass_fil[j]
+					tempwave7[numcount]=O_num_fil[j]
+					tempwave8[numcount]=H_num_fil[j]
+					numcount+=1
+				endif
+			endfor
+		
+			// mass
+			wavestats/q tempwave6
+			mass_clst_avg[i][0]=V_avg
+			mass_clst_avg[i][1]=V_sdev
+			Mass_clst_sum[i]=V_sum
+			wavestats/q tempwave
+			Molarmass_clst_avg[i][0]=V_avg
+			Molarmass_clst_avg[i][1]=V_sdev
+			wavestats/q tempwave1
+			OSc_clst_avg[i][0]=V_avg
+			OSc_clst_avg[i][1]=V_sdev
+			wavestats/q tempwave2
+			OC_clst_avg[i][0]=V_avg
+			OC_clst_avg[i][1]=V_sdev
+			wavestats/q tempwave3
+			HC_clst_avg[i][0]=V_avg
+			HC_clst_avg[i][1]=V_sdev
+			// Carbon atoms
+			wavestats/q tempwave4
+			C_num_clst_avg[i][0]=V_avg
+			C_num_clst_avg[i][1]=V_sdev
+			atom_ceil = ceil(V_avg)
+			atom_floor = floor(V_avg)
+			atom_dec = floor(10*(atom_ceil - V_avg))
+			MFstr += "C" + num2istr(atom_floor) + "." + num2istr(atom_dec)
+			// H atoms
+			wavestats/q tempwave8
+			H_num_clst_avg[i][0]=V_avg
+			H_num_clst_avg[i][1]=V_sdev
+			atom_ceil = ceil(V_avg)
+			atom_floor = floor(V_avg)
+			atom_dec = floor(10*(atom_ceil - V_avg))
+			MFstr += "H" + num2istr(atom_floor) + "." + num2istr(atom_dec)
+			// O atoms
+			wavestats/q tempwave7
+			O_num_clst_avg[i][0]=V_avg
+			O_num_clst_avg[i][1]=V_sdev
+			atom_ceil = ceil(V_avg)
+			atom_floor = floor(V_avg)
+			atom_dec = floor(10*(atom_ceil - V_avg))
+			MFstr += "O" + num2istr(atom_floor) + "." + num2istr(atom_dec)
+			// N atoms
+			wavestats/q tempwave5
+			N_num_clst_avg[i][0]=V_avg
+			N_num_clst_avg[i][1]=V_sdev
+			atom_ceil = ceil(V_avg)
+			atom_floor = floor(V_avg)
+			atom_dec = floor(10*(atom_ceil - V_avg))
+			MFstr += "N" + num2istr(atom_floor) + "." + num2istr(atom_dec)
+			
+			MolecularFormula_clst_avg[i] = MFstr
+		else // weighted by mass
+			for(j=0;j<nrows;j+=1)
+				if(clusternumwave[j]==i+1)
+					tempwave[numcount]=Molarmass_cmp_fil[j] * Cmp_mass_fil[j]
+					tempwave1[numcount]=OSc_fil[j]
+					tempwave2[numcount]=OC_fil[j]
+					tempwave3[numcount]=HC_fil[j]
+					tempwave4[numcount]=C_num_fil[j] * Cmp_mass_fil[j]
+					tempwave5[numcount]=N_num_fil[j] * Cmp_mass_fil[j]
+					tempwave6[numcount]=Cmp_mass_fil[j]
+					tempwave7[numcount]=O_num_fil[j] * Cmp_mass_fil[j]
+					tempwave8[numcount]=H_num_fil[j] * Cmp_mass_fil[j]
+					numcount+=1
+				endif
+			endfor
+		
+			// mass
+			wavestats/q tempwave6
+			mass_clst_avg[i][0]=V_avg
+			mass_clst_avg[i][1]=V_sdev
+			Mass_clst_sum[i]=V_sum
+			wavestats/q tempwave
+			Molarmass_clst_avg[i][0]=V_avg/mass_clst_avg[i][0]
+			Molarmass_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
+			wavestats/q tempwave1
+			OSc_clst_avg[i][0]=V_avg
+			OSc_clst_avg[i][1]=V_sdev
+			wavestats/q tempwave2
+			OC_clst_avg[i][0]=V_avg
+			OC_clst_avg[i][1]=V_sdev
+			wavestats/q tempwave3
+			HC_clst_avg[i][0]=V_avg
+			HC_clst_avg[i][1]=V_sdev
+			// Carbon atoms
+			wavestats/q tempwave4
+			C_num_clst_avg[i][0]=V_avg/mass_clst_avg[i][0]
+			V_avg_weighted = V_avg/mass_clst_avg[i][0]
+			C_num_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
+			atom_ceil = ceil(V_avg_weighted)
+			atom_floor = floor(V_avg_weighted)
+			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // floor(10*(1-(atom_ceil - V_avg_weighted)))
+			if(atom_dec==10)
+				atom_floor +=1 
+				atom_dec = 0
+			endif
+			MFstr += "C" + num2istr(atom_floor) + "." + num2istr(atom_dec)
+			// H atoms
+			wavestats/q tempwave8
+			H_num_clst_avg[i][0]=V_avg/mass_clst_avg[i][0]
+			V_avg_weighted = V_avg/mass_clst_avg[i][0]
+			H_num_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
+			atom_ceil = ceil(V_avg_weighted)
+			atom_floor = floor(V_avg_weighted)
+			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // floor(10*(1-(atom_ceil - V_avg_weighted)))
+			if(atom_dec==10)
+				atom_floor +=1 
+				atom_dec = 0
+			endif
+			MFstr += "H" + num2istr(atom_floor) + "." + num2istr(atom_dec)
+			// O atoms
+			wavestats/q tempwave7
+			O_num_clst_avg[i][0]=V_avg/mass_clst_avg[i][0]
+			V_avg_weighted = V_avg/mass_clst_avg[i][0]
+			O_num_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
+			atom_ceil = ceil(V_avg_weighted)
+			atom_floor = floor(V_avg_weighted)
+			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // floor(10*(1-(atom_ceil - V_avg_weighted)))
+			if(atom_dec==10)
+				atom_floor +=1 
+				atom_dec = 0
+			endif
+			MFstr += "O" + num2istr(atom_floor) + "." + num2istr(atom_dec)
+			// N atoms
+			wavestats/q tempwave5
+			N_num_clst_avg[i][0]=V_avg/mass_clst_avg[i][0]
+			V_avg_weighted = V_avg/mass_clst_avg[i][0]
+			N_num_clst_avg[i][1]=V_sdev/mass_clst_avg[i][0]
+			atom_ceil = ceil(V_avg_weighted)
+			atom_floor = floor(V_avg_weighted)
+			atom_dec = round(10*V_avg_weighted)-10*floor(V_avg_weighted) // floor(10*(1-(atom_ceil - V_avg_weighted)))
+			if(atom_dec==10)
+				atom_floor +=1 
+				atom_dec = 0
+			endif
+			MFstr += "N" + num2istr(atom_floor) + "." + num2istr(atom_dec)
+			
+			MolecularFormula_clst_avg[i] = MFstr
+		endif
+		// Get O:C, H:C, etc. 
+		OC_clst_avg[][0] = O_num_clst_avg[p][0]/C_num_clst_avg[p][0]
+		HC_clst_avg[][0] = H_num_clst_avg[p][0]/C_num_clst_avg[p][0]
+	endfor
+	
+	Note/k Molarmass_clst_avg "This wave stores the average molarmass of clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
+	Note/k OSc_clst_avg "This wave stores the average OSc of clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
+	Note/k OC_clst_avg "This wave stores the average O/C ratio of clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
+	Note/k HC_clst_avg "This wave stores the average H/C ratio of clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
+	Note/k C_num_clst_avg "This wave stores the average Carbon number of clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
+	Note/k N_num_clst_avg "This wave stores the average Nitrogen number of clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
+	Note/k O_num_clst_avg "This wave stores the average Oxygen numberof clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
+	Note/k H_num_clst_avg "This wave stores the average Hydrogen number of clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
+	Note/k Mass_clst_avg "This wave stores the average absolute mass of clusters (column0) and sdev (column1) according to wave "+nameofwave(clusternumwave)
+	Note/k Mass_clst_sum "This wave stores the sum of absolute mass of clusters according to wave "+nameofwave(clusternumwave)
+	
 End
